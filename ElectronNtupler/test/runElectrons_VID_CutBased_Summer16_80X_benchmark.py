@@ -21,7 +21,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_mc', '')
 #
 # Define input data to read
 #
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 
 inputFilesAOD = cms.untracked.vstring(
     # AOD test files from
@@ -86,8 +86,8 @@ for idmod in my_id_modules:
 # Configure an example module for user analysis with electrons
 #
 
-process.ntupler = cms.EDAnalyzer(
-    'ElectronNtuplerVIDDemo',
+# Common parameters for all IDs
+commonParameters = cms.PSet(
     # The module automatically detects AOD vs miniAOD, so we configure both
     #
     # Common to all formats objects
@@ -108,26 +108,62 @@ process.ntupler = cms.EDAnalyzer(
     genParticlesMiniAOD = cms.InputTag("prunedGenParticles"),
     verticesMiniAOD     = cms.InputTag("offlineSlimmedPrimaryVertices"),
     conversionsMiniAOD  = cms.InputTag('reducedEgamma:reducedConversions'),
+)
+
+# Define which ID to use
+idSpecification = cms.PSet(
     #
     # ID decisions (common to all formats)
     #
-    # (all IDs listed below are available given the content of "my_id_modules" defined above.
-    # only one is exercised for this example.
+    # (all IDs listed below are expected to be available given the content of "my_id_modules" 
+    # defined above.
     #
-    # eleIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-veto"),
-    eleIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose"),
-    # eleIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-medium"),
-    # eleIdMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-tight"),
-    # eleIdMap = cms.InputTag("egmGsfElectronIDs:heepElectronID-HEEPV60"),
+    eleIdMap = cms.InputTag("egmGsfElectronIDs:UNDEFINED"),
     # An example of configuration for accessing the full cut flow info for
     # one case is shown below.
     # The map name for the full info is the same as the map name of the
     # corresponding simple pass/fail map above, they are distinguished by
     # the type of the content.
-    eleIdFullInfoMap = cms.InputTag("egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-medium"),
+    eleIdFullInfoMap = cms.InputTag("egmGsfElectronIDs:UNDEFINED"),
     # This is a fairly verbose mode if switched on, with full cut flow 
     # diagnostics for each candidate. Use it in a low event count test job.
     eleIdVerbose = cms.bool(False)
+)
+
+idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-veto"
+idSpecification.eleIdMap = idString
+idSpecification.eleIdFullInfoMap = idString
+process.ntuplerIdVeto = cms.EDAnalyzer(
+    'ElectronNtuplerVIDDemo',
+    commonParameters,
+    idSpecification
+    )
+
+idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose"
+idSpecification.eleIdMap = idString
+idSpecification.eleIdFullInfoMap = idString
+process.ntuplerIdLoose = cms.EDAnalyzer(
+    'ElectronNtuplerVIDDemo',
+    commonParameters,
+    idSpecification
+    )
+
+idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-medium"
+idSpecification.eleIdMap = idString
+idSpecification.eleIdFullInfoMap = idString
+process.ntuplerIdMedium = cms.EDAnalyzer(
+    'ElectronNtuplerVIDDemo',
+    commonParameters,
+    idSpecification
+    )
+
+idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-tight"
+idSpecification.eleIdMap = idString
+idSpecification.eleIdFullInfoMap = idString
+process.ntuplerIdTight = cms.EDAnalyzer(
+    'ElectronNtuplerVIDDemo',
+    commonParameters,
+    idSpecification
     )
 
 process.TFileService = cms.Service("TFileService",
@@ -135,4 +171,8 @@ process.TFileService = cms.Service("TFileService",
                                    )
 
 # Make sure to add the ID sequence upstream from the user analysis module
-process.p = cms.Path(process.egmGsfElectronIDSequence * process.ntupler)
+process.p = cms.Path(process.egmGsfElectronIDSequence 
+                     * process.ntuplerIdVeto
+                     * process.ntuplerIdLoose
+                     * process.ntuplerIdMedium
+                     * process.ntuplerIdTight)
