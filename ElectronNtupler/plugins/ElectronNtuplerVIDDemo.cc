@@ -45,6 +45,8 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
+
 #include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include "DataFormats/EgammaCandidates/interface/Conversion.h"
 #include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
@@ -92,6 +94,7 @@ private:
   // ----------member data ---------------------------
   
   // Data members that are the same for AOD and miniAOD
+  edm::EDGetTokenT<edm::View<PileupSummaryInfo> > pileupToken_;
   edm::EDGetTokenT<reco::BeamSpot> beamSpotToken_;
   edm::EDGetTokenT<GenEventInfoProduct> genEventInfoProduct_;
   
@@ -121,10 +124,15 @@ private:
   // all variables for the output tree
   Int_t nElectrons_;
 
+  Int_t nPUTrue_;    // true pile-up
+  Int_t nPU_;        // generated pile-up
+  Int_t nPV_;        // number of reconsrtucted primary vertices
+
   std::vector<Float_t> pt_;
   std::vector<Float_t> eta_;
   std::vector<Float_t> phi_;
 
+  std::vector<Float_t> d0_;
   std::vector<Float_t> dz_;
   std::vector<Int_t> passConversionVeto_;
 
@@ -158,6 +166,10 @@ ElectronNtuplerVIDDemo::ElectronNtuplerVIDDemo(const edm::ParameterSet& iConfig)
   //
   // Prepare tokens for all input collections and objects
   //
+
+  pileupToken_ = consumes<edm::View<PileupSummaryInfo> >
+    (iConfig.getParameter <edm::InputTag>
+     ("pileup"));
 
   beamSpotToken_    = consumes<reco::BeamSpot> 
     (iConfig.getParameter <edm::InputTag>
@@ -207,11 +219,15 @@ ElectronNtuplerVIDDemo::ElectronNtuplerVIDDemo(const edm::ParameterSet& iConfig)
   electronTree_ = fs->make<TTree> ("ElectronTree", "Electron data");
   
   electronTree_->Branch("nEle",  &nElectrons_ , "nEle/I");
+  electronTree_->Branch("nPV"        ,  &nPV_     , "nPV/I");
+  electronTree_->Branch("nPU"        ,  &nPU_     , "nPU/I");
+  electronTree_->Branch("nPUTrue"    ,  &nPUTrue_ , "nPUTrue/I");
   electronTree_->Branch("pt"  ,  &pt_    );
   electronTree_->Branch("eta" ,  &eta_ );
   electronTree_->Branch("phi" ,  &phi_ );
 
-  electronTree_->Branch("dz" ,  &dz_ );
+  electronTree_->Branch("d0"  , &d0_);
+  electronTree_->Branch("dz"  ,  &dz_ );
   electronTree_->Branch("passConversionVeto" ,  &passConversionVeto_ );
   
   electronTree_->Branch("passEleId"  ,  &passEleId_ );
@@ -252,6 +268,16 @@ ElectronNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup&
   iEvent.getByToken(genEventInfoProduct_,genWeightH);
   genWeight_ = genWeightH->GenEventInfoProduct::weight();
 
+  // Get Pileup info
+  Handle<edm::View<PileupSummaryInfo> > pileupHandle;
+  iEvent.getByToken(pileupToken_, pileupHandle);
+  for( auto & puInfoElement : *pileupHandle){
+    if( puInfoElement.getBunchCrossing() == 0 ){
+      nPU_    = puInfoElement.getPU_NumInteractions();
+      nPUTrue_= puInfoElement.getTrueNumInteractions();
+    }
+  }
+
   // Retrieve the collection of electrons from the event.
   // If we fail to retrieve the collection with the standard AOD
   // name, we next look for the one with the stndard miniAOD name.
@@ -280,6 +306,7 @@ ElectronNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup&
     iEvent.getByToken(vtxMiniAODToken_, vertices);
   
   if (vertices->empty()) return; // skip the event if no PV found
+  nPV_    = vertices->size();
   
   // Find the first vertex in the collection that passes
   // good quality criteria
@@ -326,6 +353,7 @@ ElectronNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup&
   eta_.clear();
   phi_.clear();
   //
+  d0_.clear();
   dz_.clear();
   passConversionVeto_.clear();     
   //
@@ -352,6 +380,7 @@ ElectronNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup&
 
     // Impact parameter
     reco::GsfTrackRef theTrack = el->gsfTrack();
+    d0_.push_back( (-1) * theTrack->dxy(firstGoodVertex->position() ) );
     dz_.push_back( theTrack->dz( firstGoodVertex->position() ) );
     
     // Conversion rejection

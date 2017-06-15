@@ -21,7 +21,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_mc', '')
 #
 # Define input data to read
 #
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
 
 inputFilesAOD = cms.untracked.vstring(
     # AOD test files from
@@ -53,10 +53,12 @@ useAOD = False
 if useAOD == True :
     inputFiles = inputFilesAOD
     outputFile = "electron_ntuple.root"
+    pileupProductName = "addPileupInfo"
     print("AOD input files are used")
 else :
     inputFiles = inputFilesMiniAOD
     outputFile = "electron_ntuple_mini.root"
+    pileupProductName = "slimmedAddPileupInfo"
     print("MiniAOD input files are used")
 process.source = cms.Source ("PoolSource", fileNames = inputFiles )                             
 
@@ -92,6 +94,7 @@ commonParameters = cms.PSet(
     #
     # Common to all formats objects
     #
+    pileup   = cms.InputTag( pileupProductName ),
     beamSpot = cms.InputTag('offlineBeamSpot'),
     genEventInfoProduct = cms.InputTag('generator'),
     #
