@@ -8,7 +8,7 @@ process.load("Configuration.StandardSequences.GeometryRecoDB_cff")
 
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 # NOTE: the pick the right global tag!
-#    for Spring15 50ns MC: global tag is 'auto:run2_mc_50'
+#    for Spring15 50ns MC: global tag is 'auto:run2_mc_50ns'
 #    for Spring15 25ns MC: global tag is 'auto:run2_mc'
 #    for Run 2 data: global tag is 'auto:run2_data'
 #  as a rule, find the "auto" global tag in $CMSSW_RELEASE_BASE/src/Configuration/AlCa/python/autoCond.py
@@ -25,7 +25,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '90X_upgrade2017_realistic_v20'
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
 
 inputFilesAOD = cms.untracked.vstring(
-    # AOD test files from
+    # AOD test files from                                                                                                                                  
     # DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8
     # /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/PhaseISpring17DR-FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/AODSIM
 '/store/mc/PhaseISpring17DR/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/AODSIM/FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/00000/003E256E-CC28-E711-8B9F-0242AC130002.root',
@@ -36,7 +36,7 @@ inputFilesAOD = cms.untracked.vstring(
     )    
 
 inputFilesMiniAOD = cms.untracked.vstring(
-    # MiniAOD test files from 
+    # MiniAOD test files from                                                                                                                              
     # DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8
     # /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/PhaseISpring17MiniAOD-FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/MINIAODSIM
 '/store/mc/PhaseISpring17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/00000/0837196E-D728-E711-89CD-A4BF0102A5BD.root',
@@ -78,8 +78,7 @@ else :
 switchOnVIDElectronIdProducer(process, dataFormat)
 
 # define which IDs we want to produce
-my_id_modules = ['RecoEgamma.ElectronIdentification.Identification.cutBasedElectronID_Summer16_80X_V1_cff',
-                 'RecoEgamma.ElectronIdentification.Identification.heepElectronID_HEEPV60_cff']
+my_id_modules = ['RecoEgamma.ElectronIdentification.Identification.mvaElectronID_Spring16_GeneralPurpose_V1_cff']
 
 #add them to the VID producer
 for idmod in my_id_modules:
@@ -96,7 +95,6 @@ commonParameters = cms.PSet(
     # Common to all formats objects
     #
     pileup   = cms.InputTag( pileupProductName ),
-    beamSpot = cms.InputTag('offlineBeamSpot'),
     genEventInfoProduct = cms.InputTag('generator'),
     #
     # Objects specific to AOD format
@@ -104,79 +102,41 @@ commonParameters = cms.PSet(
     electrons    = cms.InputTag("gedGsfElectrons"),
     genParticles = cms.InputTag("genParticles"),
     vertices     = cms.InputTag("offlinePrimaryVertices"),
-    conversions  = cms.InputTag('allConversions'),
     #
     # Objects specific to MiniAOD format
     #
     electronsMiniAOD    = cms.InputTag("slimmedElectrons"),
     genParticlesMiniAOD = cms.InputTag("prunedGenParticles"),
     verticesMiniAOD     = cms.InputTag("offlineSlimmedPrimaryVertices"),
-    conversionsMiniAOD  = cms.InputTag('reducedEgamma:reducedConversions'),
 )
 
 # Define which ID to use
 idSpecification = cms.PSet(
     #
     # ID decisions (common to all formats)
-    #
-    # (all IDs listed below are expected to be available given the content of "my_id_modules" 
-    # defined above.
-    #
     eleIdMap = cms.InputTag("egmGsfElectronIDs:UNDEFINED"),
-    # An example of configuration for accessing the full cut flow info for
-    # one case is shown below.
-    # The map name for the full info is the same as the map name of the
-    # corresponding simple pass/fail map above, they are distinguished by
-    # the type of the content.
-    eleIdFullInfoMap = cms.InputTag("egmGsfElectronIDs:UNDEFINED"),
-    # This is a fairly verbose mode if switched on, with full cut flow 
-    # diagnostics for each candidate. Use it in a low event count test job.
-    eleIdVerbose = cms.bool(False)
+    #
+    # ValueMaps with MVA results
+    #
+    mvaValuesMap     = cms.InputTag("electronMVAValueMapProducer:ElectronMVAEstimatorRun2Spring16GeneralPurposeV1Values"),
+    mvaCategoriesMap = cms.InputTag("electronMVAValueMapProducer:ElectronMVAEstimatorRun2Spring16GeneralPurposeV1Categories")
 )
 
-idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-veto"
-idSpecification.eleIdMap = idString
-idSpecification.eleIdFullInfoMap = idString
-process.ntuplerIdVeto = cms.EDAnalyzer(
-    'ElectronNtuplerVIDDemo',
-    commonParameters,
-    idSpecification
-    )
+idSpecification.eleIdMap = cms.InputTag("egmGsfElectronIDs:mvaEleID-Spring16-GeneralPurpose-V1-wp90")
+process.ntuplerWP90 = cms.EDAnalyzer('ElectronNtuplerVIDwithMVADemo',
+                                     commonParameters,
+                                     idSpecification    
+                                     )
 
-idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-loose"
-idSpecification.eleIdMap = idString
-idSpecification.eleIdFullInfoMap = idString
-process.ntuplerIdLoose = cms.EDAnalyzer(
-    'ElectronNtuplerVIDDemo',
-    commonParameters,
-    idSpecification
-    )
-
-idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-medium"
-idSpecification.eleIdMap = idString
-idSpecification.eleIdFullInfoMap = idString
-process.ntuplerIdMedium = cms.EDAnalyzer(
-    'ElectronNtuplerVIDDemo',
-    commonParameters,
-    idSpecification
-    )
-
-idString = "egmGsfElectronIDs:cutBasedElectronID-Summer16-80X-V1-tight"
-idSpecification.eleIdMap = idString
-idSpecification.eleIdFullInfoMap = idString
-process.ntuplerIdTight = cms.EDAnalyzer(
-    'ElectronNtuplerVIDDemo',
-    commonParameters,
-    idSpecification
-    )
+idSpecification.eleIdMap = cms.InputTag("egmGsfElectronIDs:mvaEleID-Spring16-GeneralPurpose-V1-wp80")
+process.ntuplerWP80 = cms.EDAnalyzer('ElectronNtuplerVIDwithMVADemo',
+                                     commonParameters,
+                                     idSpecification    
+                                     )
 
 process.TFileService = cms.Service("TFileService",
                                    fileName = cms.string( outputFile )
                                    )
 
 # Make sure to add the ID sequence upstream from the user analysis module
-process.p = cms.Path(process.egmGsfElectronIDSequence 
-                     * process.ntuplerIdVeto
-                     * process.ntuplerIdLoose
-                     * process.ntuplerIdMedium
-                     * process.ntuplerIdTight)
+process.p = cms.Path(process.egmGsfElectronIDSequence * process.ntuplerWP80 * process.ntuplerWP90)

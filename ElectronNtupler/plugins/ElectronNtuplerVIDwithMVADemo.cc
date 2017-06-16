@@ -36,10 +36,14 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+
 #include "DataFormats/Common/interface/ValueMap.h"
 
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
+
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
 #include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include "DataFormats/EgammaCandidates/interface/Conversion.h"
@@ -86,19 +90,21 @@ class ElectronNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
       // ----------member data ---------------------------
 
       // Data members that are the same for AOD and miniAOD
-      // ... none ...
+      edm::EDGetTokenT<edm::View<PileupSummaryInfo> > pileupToken_;
+      edm::EDGetTokenT<GenEventInfoProduct> genEventInfoProduct_;
 
       // AOD case data members
       edm::EDGetToken electronsToken_;
       edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesToken_;
+      edm::EDGetTokenT<reco::VertexCollection> vtxToken_;
 
       // MiniAOD case data members
       edm::EDGetToken electronsMiniAODToken_;
       edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesMiniAODToken_;
+      edm::EDGetTokenT<reco::VertexCollection> vtxMiniAODToken_;
 
       // ID decisions objects
-      edm::EDGetTokenT<edm::ValueMap<bool> > eleMediumIdMapToken_;
-      edm::EDGetTokenT<edm::ValueMap<bool> > eleTightIdMapToken_;
+      edm::EDGetTokenT<edm::ValueMap<bool> > eleIdMapToken_;
 
       // MVA values and categories (optional)
       edm::EDGetTokenT<edm::ValueMap<float> > mvaValuesMapToken_;
@@ -114,6 +120,10 @@ class ElectronNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
   // all variables for the output tree
   Int_t nElectrons_;
 
+  Int_t nPUTrue_;    // true pile-up                                                                                                            
+  Int_t nPU_;        // generated pile-up                                                                                                       
+  Int_t nPV_;        // number of reconsrtucted primary vertices                                                                                
+
   std::vector<Float_t> pt_;
   std::vector<Float_t> eta_;
   std::vector<Float_t> phi_;
@@ -121,10 +131,12 @@ class ElectronNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
   std::vector<Float_t> mvaValue_;
   std::vector<Int_t>   mvaCategory_;
 
-  std::vector<Int_t> passMediumId_;
-  std::vector<Int_t> passTightId_;
+  std::vector<Int_t> passEleId_;
 
   std::vector<Int_t> isTrue_;
+
+  // Vars for weight (can be negative)                                                                                                          
+  Float_t genWeight_;
 
 };
 
@@ -140,8 +152,7 @@ class ElectronNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
 // constructors and destructor
 //
 ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::ParameterSet& iConfig):
-  eleMediumIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("eleMediumIdMap"))),
-  eleTightIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("eleTightIdMap"))),
+  eleIdMapToken_(consumes<edm::ValueMap<bool> >(iConfig.getParameter<edm::InputTag>("eleIdMap"))),
   mvaValuesMapToken_(consumes<edm::ValueMap<float> >(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))),
   mvaCategoriesMapToken_(consumes<edm::ValueMap<int> >(iConfig.getParameter<edm::InputTag>("mvaCategoriesMap")))
 {
@@ -149,7 +160,13 @@ ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::Paramete
   //
   // Prepare tokens for all input collections and objects
   //
+  pileupToken_ = consumes<edm::View<PileupSummaryInfo> >
+    (iConfig.getParameter <edm::InputTag>
+     ("pileup"));
 
+  genEventInfoProduct_ = consumes<GenEventInfoProduct>
+    (iConfig.getParameter <edm::InputTag>
+     ("genEventInfoProduct"));
 
   // AOD tokens
   electronsToken_    = mayConsume<edm::View<reco::GsfElectron> >
@@ -159,6 +176,10 @@ ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::Paramete
   genParticlesToken_ = mayConsume<edm::View<reco::GenParticle> >
     (iConfig.getParameter<edm::InputTag>
      ("genParticles"));
+
+  vtxToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("vertices"));
 
   // MiniAOD tokens
   // For electrons, use the fact that pat::Electron can be cast into 
@@ -171,6 +192,9 @@ ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::Paramete
     (iConfig.getParameter<edm::InputTag>
      ("genParticlesMiniAOD"));
 
+  vtxMiniAODToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("verticesMiniAOD"));
 
   edm::Service<TFileService> fs;
   electronTree_ = fs->make<TTree> ("ElectronTree", "Electron data");
@@ -187,10 +211,11 @@ ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::Paramete
   electronTree_->Branch("mvaVal" ,  &mvaValue_ );
   electronTree_->Branch("mvaCat" ,  &mvaCategory_ );
   
-  electronTree_->Branch("passMediumId" ,  &passMediumId_ );
-  electronTree_->Branch("passTightId"  ,  &passTightId_ );
+  electronTree_->Branch("passEleId" ,  &passEleId_ );
 
-  electronTree_->Branch("isTrue"             , &isTrue_);
+  electronTree_->Branch("isTrue"       , &isTrue_);
+
+  electronTree_->Branch("genWeight"    , &genWeight_);
 
 }
 
@@ -221,6 +246,21 @@ ElectronNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::Even
   lumi_ = iEvent.id().luminosityBlock();
   evtnum_ = iEvent.id().event();
 
+  // Get gen weight info                                                                                                                        
+  edm::Handle< GenEventInfoProduct > genWeightH;
+  iEvent.getByToken(genEventInfoProduct_,genWeightH);
+  genWeight_ = genWeightH->GenEventInfoProduct::weight();
+
+  // Get Pileup info                                                                                                                            
+  Handle<edm::View<PileupSummaryInfo> > pileupHandle;
+  iEvent.getByToken(pileupToken_, pileupHandle);
+  for( auto & puInfoElement : *pileupHandle){
+    if( puInfoElement.getBunchCrossing() == 0 ){
+      nPU_    = puInfoElement.getPU_NumInteractions();
+      nPUTrue_= puInfoElement.getTrueNumInteractions();
+    }
+  }
+
   // Retrieve the collection of electrons from the event.
   // If we fail to retrieve the collection with the standard AOD
   // name, we next look for the one with the stndard miniAOD name.
@@ -234,6 +274,16 @@ ElectronNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::Even
     iEvent.getByToken(electronsMiniAODToken_,electrons);
   }
   
+  // Get PV                                                                                                                                     
+  edm::Handle<reco::VertexCollection> vertices;
+  if( isAOD )
+    iEvent.getByToken(vtxToken_, vertices);
+  else
+    iEvent.getByToken(vtxMiniAODToken_, vertices);
+
+  if (vertices->empty()) return; // skip the event if no PV found                                                                               
+  nPV_    = vertices->size();
+
   // Get the MC collection
   Handle<edm::View<reco::GenParticle> > genParticles;
   if( isAOD )
@@ -244,10 +294,8 @@ ElectronNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::Even
   // Get the electron ID data from the event stream.
   // Note: this implies that the VID ID modules have been run upstream.
   // If you need more info, check with the EGM group.
-  edm::Handle<edm::ValueMap<bool> > medium_id_decisions;
-  edm::Handle<edm::ValueMap<bool> > tight_id_decisions; 
-  iEvent.getByToken(eleMediumIdMapToken_,medium_id_decisions);
-  iEvent.getByToken(eleTightIdMapToken_,tight_id_decisions);
+  edm::Handle<edm::ValueMap<bool> > id_decisions;
+  iEvent.getByToken(eleIdMapToken_,id_decisions);
 
   // Get MVA values and categories (optional)
   edm::Handle<edm::ValueMap<float> > mvaValues;
@@ -263,8 +311,7 @@ ElectronNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::Even
   //
   mvaValue_.clear();
   mvaCategory_.clear();
-  passMediumId_.clear();
-  passTightId_ .clear();
+  passEleId_.clear();
   //
   isTrue_.clear();
 
@@ -288,10 +335,8 @@ ElectronNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::Even
     //
     // Look up and save the ID decisions
     // 
-    bool isPassMedium = (*medium_id_decisions)[el];
-    bool isPassTight  = (*tight_id_decisions)[el];
-    passMediumId_.push_back( (int)isPassMedium);
-    passTightId_.push_back ( (int)isPassTight );
+    bool isPass = (*id_decisions)[el];
+    passEleId_.push_back( (int)isPass);
 
     mvaValue_.push_back( (*mvaValues)[el] );
     mvaCategory_.push_back( (*mvaCategories)[el] );
