@@ -2,7 +2,7 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_("General")
-config.General.requestName = 'electron_cutID_benchmark_DY_90X'
+config.General.requestName = 'electron_cutID_benchmark_DY_90X_v2'
 config.General.workArea = 'crab_projects'
 
 config.section_("JobType")
@@ -14,6 +14,8 @@ config.Data.inputDataset = '/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pyth
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 10
+# Comment out the line for totalUnits to run on the full dataset
+config.Data.totalUnits = 10
 config.Data.publication = False
 config.Data.ignoreLocality = False
 

@@ -2,18 +2,20 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_("General")
-config.General.requestName = 'electron_simple_ntupler_80X_forID_TT_v4'
+config.General.requestName = 'electron_cutID_benchmark_TT_90X_v2'
 config.General.workArea = 'crab_projects'
 
 config.section_("JobType")
 config.JobType.pluginName = 'Analysis'
-config.JobType.psetName = 'runElectrons.py'
+config.JobType.psetName = 'runElectrons_VID_CutBased_Summer16_80X_benchmark.py'
 
 config.section_("Data")
-config.Data.inputDataset = '/TTJets_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/RunIISpring16MiniAODv1-PUSpring16RAWAODSIM_80X_mcRun2_asymptotic_2016_v3-v2/MINIAODSIM'
+config.Data.inputDataset = '/TTJets_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/PhaseISpring17MiniAOD-FlatPU28to62_90X_upgrade2017_realistic_v20-v1/MINIAODSIM'
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 10
+# Comment out the line for totalUnits to run on the full dataset
+config.Data.totalUnits = 10
 config.Data.publication = False
 config.Data.ignoreLocality = False
 
