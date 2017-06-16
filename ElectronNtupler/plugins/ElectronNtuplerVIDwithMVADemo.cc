@@ -203,6 +203,10 @@ ElectronNtuplerVIDwithMVADemo::ElectronNtuplerVIDwithMVADemo(const edm::Paramete
   electronTree_->Branch("lumi"       ,  &lumi_    , "lumi/I");
   electronTree_->Branch("evtnum"     ,  &evtnum_  , "evtnum/I");
 
+  electronTree_->Branch("nPV"        ,  &nPV_     , "nPV/I");
+  electronTree_->Branch("nPU"        ,  &nPU_     , "nPU/I");
+  electronTree_->Branch("nPUTrue"    ,  &nPUTrue_ , "nPUTrue/I");
+
   electronTree_->Branch("nEle",  &nElectrons_ , "nEle/I");
   electronTree_->Branch("pt"  ,  &pt_    );
   electronTree_->Branch("eta" ,  &eta_ );
