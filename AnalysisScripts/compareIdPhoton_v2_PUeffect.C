@@ -1,4 +1,4 @@
-// This script compares performance of photon MVA IDs
+// This script compares performance of cut-based photon IDs
 // on signal and background samples
 
 #include "TStyle.h"
@@ -28,23 +28,27 @@ TH1F *histPUWeights90X = 0;
 // Files, samples
 const int nSamples = 4;
 enum SampleType {SIGNAL_OLD=0, SIGNAL_NEW, BG_OLD, BG_NEW};
-const TString fileNames[nSamples] = {"GJet_Pt-20toInf_mvaID_80X_10files.root",
-				     "Gjet_Pt-20toInf_mvaID_90X_10files.root",
-				     "GJet_Pt-20toInf_mvaID_80X_10files.root",
-				     "Gjet_Pt-20toInf_mvaID_90X_10files.root"};
+const TString fileNames[nSamples] = {"Gjet_Pt-20toInf_cutID_90X_10files.root",
+				     "Gjet_Pt-20toInf_cutID_90X_10files.root",
+				     "Gjet_Pt-20toInf_cutID_90X_10files.root",
+				     "Gjet_Pt-20toInf_cutID_90X_10files.root"};
 const bool isSigOrBg[nSamples] = { true,
 				   true,
 				   false,
 				   false};
-const bool is80X[nSamples] = { true,
-			       false,
-			       true,
-			       false};
+const bool isWithPU[nSamples] = { true,
+				  false,
+				  true,
+				  false};
 
 // Ntuples, trees
-const int nWP = 2;
-const TString dirNames[nWP] = {"ntuplerWP90",
-			       "ntuplerWP80"};
+const int nWP = 3;
+const TString dirNames[nWP] = {"ntupler",
+			       "ntupler",
+			       "ntupler"};
+const TString varNames[nWP] = {"passLooseId",
+			       "passMediumId",
+			       "passTightId"};
 const TString treeName = "PhotonTree";
 
 const int nEtaRegions = 2;
@@ -59,12 +63,13 @@ const float etaEndcapMax = 2.5000;
 
 // Forward declarations
 TTree *getTree(TString fileName, int indexWP);
-void   getEfficiency(TTree *tree, bool do80X, bool isSignal, bool isBarrel, float &eff, float &effErr);
+void   getEfficiency(TTree *tree, TString idVar, bool do80X, 
+		     bool isSignal, bool isBarrel, float &eff, float &effErr);
 float  getPUWeight(int nPU, bool do80X);
 
 
 // Main method
-void compareIdPhotonMva_v2(){
+void compareIdPhotonCut_v2_PUeffect(){
   
   //
   // Retrieve all trees from files
@@ -90,7 +95,7 @@ void compareIdPhotonMva_v2(){
 	if(verbose>0)
 	  printf("\nFind efficiency for file %s, WP=%d, isBarrel=%d, isSignal=%d\n", fileNames[iSample].Data(), iWP, 
 		 (int)isBarrel, (int)isSigOrBg[iSample]);
-	getEfficiency(trees[iSample][iWP], is80X[iSample], isSigOrBg[iSample], isBarrel, 
+	getEfficiency(trees[iSample][iWP], varNames[iWP], isWithPU[iSample], isSigOrBg[iSample], isBarrel, 
 		      effVals[iSample][iWP][iEta], effErrVals[iSample][iWP][iEta]);
       } // end loop over barrel/endcap eta
     } // end loop over working points
@@ -109,7 +114,7 @@ void compareIdPhotonMva_v2(){
 
     c1[iEta] = new TCanvas(TString::Format("canvas%d",iEta),"",10+100*iEta,10,800,800);
     gStyle->SetOptStat(0);
-    dummy[iEta] = new TH2F(TString::Format("dummy%d",iEta),"",100,0.6,1,100,0.5,1);
+    dummy[iEta] = new TH2F(TString::Format("dummy%d",iEta),"",100,0.5,1,100,0.4,1);
     dummy[iEta]->SetTitle(";signal efficiency;background rejection");
     dummy[iEta]->GetYaxis()->SetTitleOffset(1.5);
     dummy[iEta]->Draw();
@@ -137,8 +142,8 @@ void compareIdPhotonMva_v2(){
     newEffPoints[iEta]->Draw("P,same");
 
     leg[iEta] = new TLegend(0.15, 0.2, 0.65, 0.4);
-    leg[iEta]->AddEntry(oldEffPoints[iEta], "80X samples with 80X ID", "P");
-    leg[iEta]->AddEntry(newEffPoints[iEta], "90X samples with 80X ID", "P");
+    leg[iEta]->AddEntry(oldEffPoints[iEta], "MC/ID 90X/80X, 80X pileup", "P");
+    leg[iEta]->AddEntry(newEffPoints[iEta], "MC/ID 90X/80X, 90X pileup", "P");
     leg[iEta]->SetFillStyle(0);
     leg[iEta]->SetBorderSize(0);
     leg[iEta]->Draw();
@@ -172,7 +177,8 @@ TTree *getTree(TString fileName, int indexWP){
   return tree;
 }
 
-void   getEfficiency(TTree *tree, bool do80X, bool doSignal, bool doBarrel, float &eff, float &effErr){
+void   getEfficiency(TTree *tree, TString idVar, bool doPU, 
+		     bool doSignal, bool doBarrel, float &eff, float &effErr){
 
   // Histograms for numerator and denominator of the efficiency
   TH1F *histNum = new TH1F("histNum", "", 1, 0, 1e9); // A dummy histogram for projections, use 1 bin! to get the error easily
@@ -201,7 +207,7 @@ void   getEfficiency(TTree *tree, bool do80X, bool doSignal, bool doBarrel, floa
   tree->SetBranchAddress("nPho", &nPho, &b_nPho );
   tree->SetBranchAddress("pt", &pt, &b_pt );
   tree->SetBranchAddress("eta", &eta, &b_eta);
-  tree->SetBranchAddress("passPhoId",&passId, &b_passId );
+  tree->SetBranchAddress(idVar,&passId, &b_passId );
   tree->SetBranchAddress("isTrue", &isTrue, &b_isTrue );
   tree->SetBranchAddress("genWeight", &genWeight, &b_genWeight );
 
@@ -247,14 +253,14 @@ void   getEfficiency(TTree *tree, bool do80X, bool doSignal, bool doBarrel, floa
       // background: 0 unmatched photons, 2 photons from pi0, 3 photons from "other sources"
       bool doBackground = !doSignal;
       if( !( (doSignal && isTrue->at(iPho)==1)
-             || ( doBackground && isTrue->at(iPho) != 1 ) ) )
-        continue;
+	     || ( doBackground && isTrue->at(iPho) != 1 ) ) )
+	continue;
 
       // The candidate survived and is to be counted
       if(verbose>1)
 	printf("   the candidate is to be counted\n");
 
-      float puWeight = getPUWeight(nPU, do80X);
+      float puWeight = getPUWeight(nPU, doPU);
       float weight = genWeight * puWeight;
       histDen->Fill(pt->at(iPho), weight);
 
@@ -286,30 +292,31 @@ void   getEfficiency(TTree *tree, bool do80X, bool doSignal, bool doBarrel, floa
   return;
 }
 
-float  getPUWeight(int nPU, bool do80X){
+float  getPUWeight(int nPU, bool doPU){
   
   float puWeight = 1.0;
   if( !usePileupWeights )
     return puWeight;
   
+  if( !doPU )
+    return puWeight;
+
   // If this is the first time, set up the weight histograms
-  if( histPUWeights80X == 0 || histPUWeights90X == 0 ){
+  if( histPUWeights90X == 0 ){
     TFile *fWeights = new TFile(fnamePileupWeights);
     if( fWeights == 0 ){
       printf("Can't open file with PU weights %s\n", fnamePileupWeights.Data());
       assert(0);
     }
-    histPUWeights80X = (TH1F*)fWeights->Get(hnamePUWeights80X);
     histPUWeights90X = (TH1F*)fWeights->Get(hnamePUWeights90X);
-    if( histPUWeights80X == 0 || histPUWeights90X == 0 ){
-      printf("Can't load the weights histogram %s or %s from the file %s\n", 
-	     hnamePUWeights80X.Data(), hnamePUWeights90X.Data(), fnamePileupWeights.Data());
+    if( histPUWeights90X == 0 ){
+      printf("Can't load the weights histogram %s from the file %s\n", 
+	     hnamePUWeights90X.Data(), fnamePileupWeights.Data());
       assert(0);
     }
   }
   
-  TH1F *histPUWeights = do80X ? histPUWeights80X : histPUWeights90X;
-  puWeight = histPUWeights->GetBinContent( histPUWeights->GetXaxis()->FindBin( nPU ));
+  puWeight = histPUWeights90X->GetBinContent( histPUWeights90X->GetXaxis()->FindBin( nPU ));
 
   return puWeight;
 
