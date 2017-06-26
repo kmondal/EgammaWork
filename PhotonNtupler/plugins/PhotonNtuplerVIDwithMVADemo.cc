@@ -36,12 +36,16 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+
 #include "DataFormats/Common/interface/ValueMap.h"
 
 #include "DataFormats/PatCandidates/interface/VIDCutFlowResult.h"
 
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
+
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
 #include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include "DataFormats/EgammaCandidates/interface/Conversion.h"
@@ -90,19 +94,22 @@ class PhotonNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
       // ----------member data ---------------------------
 
       // Data members that are the same for AOD and miniAOD
-      // ... none ...
+      edm::EDGetTokenT<edm::View<PileupSummaryInfo> > pileupToken_;
+      edm::EDGetTokenT<GenEventInfoProduct> genEventInfoProduct_;
 
       // AOD case data members
       edm::EDGetToken photonsToken_;
       edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesToken_;
+      edm::EDGetTokenT<reco::VertexCollection> vtxToken_;
 
       // MiniAOD case data members
       edm::EDGetToken photonsMiniAODToken_;
       edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesMiniAODToken_;
+      edm::EDGetTokenT<reco::VertexCollection> vtxMiniAODToken_;
 
       // ID decisions objects
-      edm::EDGetTokenT<edm::ValueMap<bool> >               phoMediumIdBoolMapToken_;
-      edm::EDGetTokenT<edm::ValueMap<vid::CutFlowResult> > phoMediumIdFullInfoMapToken_;
+      edm::EDGetTokenT<edm::ValueMap<bool> >               phoIdBoolMapToken_;
+      edm::EDGetTokenT<edm::ValueMap<vid::CutFlowResult> > phoIdFullInfoMapToken_;
 
       // MVA values and categories (optional)
       edm::EDGetTokenT<edm::ValueMap<float> > mvaValuesMapToken_;
@@ -121,6 +128,10 @@ class PhotonNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
   // all variables for the output tree
   Int_t nPhotons_;
 
+  Int_t nPUTrue_;    // true pile-up
+  Int_t nPU_;        // generated pile-up
+  Int_t nPV_;        // number of reconsrtucted primary vertices
+
   std::vector<Float_t> pt_;
   std::vector<Float_t> eta_;
   std::vector<Float_t> phi_;
@@ -128,10 +139,11 @@ class PhotonNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
   std::vector<Float_t> mvaValue_;
   std::vector<Int_t>   mvaCategory_;
 
-  std::vector<Int_t> passMediumId_;
+  std::vector<Int_t> passPhoId_;
 
   std::vector<Int_t> isTrue_;
 
+  Float_t genWeight_;
 };
 
 //
@@ -146,10 +158,10 @@ class PhotonNtuplerVIDwithMVADemo : public edm::EDAnalyzer {
 // constructors and destructor
 //
 PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet& iConfig):
-  phoMediumIdBoolMapToken_(consumes<edm::ValueMap<bool> >
-			   (iConfig.getParameter<edm::InputTag>("phoMediumIdBoolMap"))),
-  phoMediumIdFullInfoMapToken_(consumes<edm::ValueMap<vid::CutFlowResult> >
-			       (iConfig.getParameter<edm::InputTag>("phoMediumIdFullInfoMap"))),
+  phoIdBoolMapToken_(consumes<edm::ValueMap<bool> >
+			   (iConfig.getParameter<edm::InputTag>("phoIdBoolMap"))),
+  phoIdFullInfoMapToken_(consumes<edm::ValueMap<vid::CutFlowResult> >
+			       (iConfig.getParameter<edm::InputTag>("phoIdFullInfoMap"))),
   mvaValuesMapToken_(consumes<edm::ValueMap<float> >(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))),
   mvaCategoriesMapToken_(consumes<edm::ValueMap<int> >(iConfig.getParameter<edm::InputTag>("mvaCategoriesMap"))),
   verboseIdFlag_(iConfig.getParameter<bool>("phoIdVerbose"))
@@ -158,7 +170,13 @@ PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet
   //
   // Prepare tokens for all input collections and objects
   //
+  pileupToken_ = consumes<edm::View<PileupSummaryInfo> >
+    (iConfig.getParameter <edm::InputTag>
+     ("pileup"));
 
+  genEventInfoProduct_ = consumes<GenEventInfoProduct> 
+    (iConfig.getParameter <edm::InputTag>
+     ("genEventInfoProduct"));
 
   // AOD tokens
   photonsToken_    = mayConsume<edm::View<reco::Photon> >
@@ -168,6 +186,10 @@ PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet
   genParticlesToken_ = mayConsume<edm::View<reco::GenParticle> >
     (iConfig.getParameter<edm::InputTag>
      ("genParticles"));
+
+  vtxToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("vertices"));
 
   // MiniAOD tokens
   // For photons, use the fact that pat::Photon can be cast into 
@@ -180,6 +202,9 @@ PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet
     (iConfig.getParameter<edm::InputTag>
      ("genParticlesMiniAOD"));
 
+  vtxMiniAODToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("verticesMiniAOD"));
 
   edm::Service<TFileService> fs;
   photonTree_ = fs->make<TTree> ("PhotonTree", "Photon data");
@@ -189,6 +214,11 @@ PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet
   photonTree_->Branch("evtnum"     ,  &evtnum_  , "evtnum/I");
 
   photonTree_->Branch("nPho",  &nPhotons_ , "nPho/I");
+  
+  photonTree_->Branch("nPV"        ,  &nPV_     , "nPV/I");
+  photonTree_->Branch("nPU"        ,  &nPU_     , "nPU/I");
+  photonTree_->Branch("nPUTrue"    ,  &nPUTrue_ , "nPUTrue/I");
+
   photonTree_->Branch("pt"  ,  &pt_    );
   photonTree_->Branch("eta" ,  &eta_ );
   photonTree_->Branch("phi" ,  &phi_ );
@@ -196,10 +226,11 @@ PhotonNtuplerVIDwithMVADemo::PhotonNtuplerVIDwithMVADemo(const edm::ParameterSet
   photonTree_->Branch("mvaVal" ,  &mvaValue_ );
   photonTree_->Branch("mvaCat" ,  &mvaCategory_ );
   
-  photonTree_->Branch("passMediumId" ,  &passMediumId_ );
+  photonTree_->Branch("passPhoId" ,  &passPhoId_ );
 
   photonTree_->Branch("isTrue"             , &isTrue_);
 
+  photonTree_->Branch("genWeight"    ,  &genWeight_ , "genWeight/F");
 }
 
 
@@ -229,6 +260,21 @@ PhotonNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::EventS
   lumi_ = iEvent.id().luminosityBlock();
   evtnum_ = iEvent.id().event();
 
+  // Get gen weight info
+  edm::Handle< GenEventInfoProduct > genWeightH;
+  iEvent.getByToken(genEventInfoProduct_,genWeightH);
+  genWeight_ = genWeightH->GenEventInfoProduct::weight();
+
+  // Get Pileup info
+  Handle<edm::View<PileupSummaryInfo> > pileupHandle;
+  iEvent.getByToken(pileupToken_, pileupHandle);
+  for( auto & puInfoElement : *pileupHandle){
+    if( puInfoElement.getBunchCrossing() == 0 ){
+      nPU_    = puInfoElement.getPU_NumInteractions();
+      nPUTrue_= puInfoElement.getTrueNumInteractions();
+    }
+  }
+
   // Retrieve the collection of photons from the event.
   // If we fail to retrieve the collection with the standard AOD
   // name, we next look for the one with the stndard miniAOD name.
@@ -249,17 +295,27 @@ PhotonNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::EventS
   else
     iEvent.getByToken(genParticlesMiniAODToken_,genParticles);
 
+  // Get PV
+  edm::Handle<reco::VertexCollection> vertices; 
+  if( isAOD )
+    iEvent.getByToken(vtxToken_, vertices);
+  else
+    iEvent.getByToken(vtxMiniAODToken_, vertices);
+  
+  if (vertices->empty()) return; // skip the event if no PV found
+  nPV_    = vertices->size();
+  
   // Get the photon ID data from the event stream.
   // Note: this implies that the VID ID modules have been run upstream.
   // If you need more info, check with the EGM group.
   //
   // The first map simply has pass/fail for each particle
   edm::Handle<edm::ValueMap<bool> > medium_id_decisions;
-  iEvent.getByToken(phoMediumIdBoolMapToken_,medium_id_decisions);
+  iEvent.getByToken(phoIdBoolMapToken_,medium_id_decisions);
   //
   // The second map has the full info about the cut flow
   edm::Handle<edm::ValueMap<vid::CutFlowResult> > medium_id_cutflow_data;
-  iEvent.getByToken(phoMediumIdFullInfoMapToken_,medium_id_cutflow_data);
+  iEvent.getByToken(phoIdFullInfoMapToken_,medium_id_cutflow_data);
 
   // Get MVA values and categories (optional)
   edm::Handle<edm::ValueMap<float> > mvaValues;
@@ -275,7 +331,7 @@ PhotonNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::EventS
   //
   mvaValue_.clear();
   mvaCategory_.clear();
-  passMediumId_.clear();
+  passPhoId_.clear();
   //
   isTrue_.clear();
 
@@ -305,7 +361,7 @@ PhotonNtuplerVIDwithMVADemo::analyze(const edm::Event& iEvent, const edm::EventS
     //
     // The minimal info:
     bool isPassMedium = (*medium_id_decisions)[pho];
-    passMediumId_.push_back( (int)isPassMedium);
+    passPhoId_.push_back( (int)isPassMedium);
 
     // Direct access to ValueMaps with the MVA value and category for this candidate
     mvaValue_.push_back( (*mvaValues)[pho] );

@@ -37,12 +37,16 @@
 #include "DataFormats/Candidate/interface/Candidate.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+
 #include "DataFormats/Common/interface/ValueMap.h"
 
 #include "DataFormats/PatCandidates/interface/VIDCutFlowResult.h"
 
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
+
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
@@ -86,13 +90,19 @@ private:
 
   // ----------member data ---------------------------
   
+  // Data members that are the same for AOD and miniAOD
+  edm::EDGetTokenT<edm::View<PileupSummaryInfo> > pileupToken_;
+  edm::EDGetTokenT<GenEventInfoProduct> genEventInfoProduct_;
+
   // AOD case data members
   edm::EDGetToken photonsToken_;
   edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesToken_;
+  edm::EDGetTokenT<reco::VertexCollection> vtxToken_;
 
   // MiniAOD case data members
   edm::EDGetToken photonsMiniAODToken_;
   edm::EDGetTokenT<edm::View<reco::GenParticle> > genParticlesMiniAODToken_;
+  edm::EDGetTokenT<reco::VertexCollection> vtxMiniAODToken_;
   
   
   // ID decision objects
@@ -110,6 +120,10 @@ private:
   // all photon variables
   Int_t nPhotons_;
   
+  Int_t nPUTrue_;    // true pile-up
+  Int_t nPU_;        // generated pile-up
+  Int_t nPV_;        // number of reconsrtucted primary vertices
+
   std::vector<Float_t> pt_;
   std::vector<Float_t> eta_;
   std::vector<Float_t> phi_;
@@ -120,6 +134,8 @@ private:
 
   std::vector<Int_t> isTrue_;
 
+  // Vars for weight (can be negative)
+  Float_t genWeight_;
 };
 
 //
@@ -144,7 +160,14 @@ PhotonNtuplerVIDDemo::PhotonNtuplerVIDDemo(const edm::ParameterSet& iConfig):
 
   //                                                                                                                                                                           
   // Prepare tokens for all input collections and objects                                                                                                                      
-  //                                                                                                                                                                           
+  pileupToken_ = consumes<edm::View<PileupSummaryInfo> >
+    (iConfig.getParameter <edm::InputTag>
+     ("pileup"));
+
+  genEventInfoProduct_ = consumes<GenEventInfoProduct> 
+    (iConfig.getParameter <edm::InputTag>
+     ("genEventInfoProduct"));
+
   
   // AOD tokens                                                                                                                                                                
   photonsToken_ = mayConsume<edm::View<reco::Photon> >
@@ -155,6 +178,10 @@ PhotonNtuplerVIDDemo::PhotonNtuplerVIDDemo(const edm::ParameterSet& iConfig):
     (iConfig.getParameter<edm::InputTag>
      ("genParticles"));
     
+  vtxToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("vertices"));
+
   // MiniAOD tokens                                                                                                                                                            
   photonsMiniAODToken_ = mayConsume<edm::View<reco::Photon> >
     (iConfig.getParameter<edm::InputTag>
@@ -164,10 +191,17 @@ PhotonNtuplerVIDDemo::PhotonNtuplerVIDDemo(const edm::ParameterSet& iConfig):
     (iConfig.getParameter<edm::InputTag>
      ("genParticlesMiniAOD"));
  
+  vtxMiniAODToken_          = mayConsume<reco::VertexCollection>
+    (iConfig.getParameter<edm::InputTag>
+     ("verticesMiniAOD"));
 
   edm::Service<TFileService> fs;
   photonTree_ = fs->make<TTree> ("PhotonTree", "Photon data");
   
+  photonTree_->Branch("nPV"        ,  &nPV_     , "nPV/I");
+  photonTree_->Branch("nPU"        ,  &nPU_     , "nPU/I");
+  photonTree_->Branch("nPUTrue"    ,  &nPUTrue_ , "nPUTrue/I");
+
   photonTree_->Branch("nPho",  &nPhotons_ , "nPho/I");
   photonTree_->Branch("pt"  ,  &pt_    );
   photonTree_->Branch("eta" ,  &eta_ );
@@ -178,6 +212,8 @@ PhotonNtuplerVIDDemo::PhotonNtuplerVIDDemo(const edm::ParameterSet& iConfig):
   photonTree_->Branch("passTightId"  ,  &passTightId_ );
 
   photonTree_->Branch("isTrue"             , &isTrue_);
+
+  photonTree_->Branch("genWeight"    ,  &genWeight_ , "genWeight/F");
 
 }
 
@@ -203,7 +239,22 @@ PhotonNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   using namespace edm;
   using namespace reco;
 
-  // Retrieve the collection of photons from the event.                                                                                                                      
+  // Get gen weight info
+  edm::Handle< GenEventInfoProduct > genWeightH;
+  iEvent.getByToken(genEventInfoProduct_,genWeightH);
+  genWeight_ = genWeightH->GenEventInfoProduct::weight();
+
+  // Get Pileup info
+  Handle<edm::View<PileupSummaryInfo> > pileupHandle;
+  iEvent.getByToken(pileupToken_, pileupHandle);
+  for( auto & puInfoElement : *pileupHandle){
+    if( puInfoElement.getBunchCrossing() == 0 ){
+      nPU_    = puInfoElement.getPU_NumInteractions();
+      nPUTrue_= puInfoElement.getTrueNumInteractions();
+    }
+  }
+
+  // Retrieve the collection of photons from the event.                                                                       
   // If we fail to retrieve the collection with the standard AOD
   // name, we next look for the one with the stndard miniAOD name. 
   //   We use exactly the same handle for AOD and miniAOD formats
@@ -223,6 +274,16 @@ PhotonNtuplerVIDDemo::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   else
     iEvent.getByToken(genParticlesMiniAODToken_,genParticles);
 
+  // Get PV
+  edm::Handle<reco::VertexCollection> vertices; 
+  if( isAOD )
+    iEvent.getByToken(vtxToken_, vertices);
+  else
+    iEvent.getByToken(vtxMiniAODToken_, vertices);
+  
+  if (vertices->empty()) return; // skip the event if no PV found
+  nPV_    = vertices->size();
+  
   // Get the photon ID data from the event stream.
   // Note: this implies that the VID ID modules have been run upstream.
   // If you need more info, check with the EGM group.
