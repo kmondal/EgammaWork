@@ -123,6 +123,7 @@ class SimpleElectronNtupler : public edm::EDAnalyzer {
   Int_t nElectrons_;
 
   std::vector<Float_t> pt_;
+  std::vector<Float_t> eSC_;
   std::vector<Float_t> etaSC_;
   std::vector<Float_t> phiSC_;
   std::vector<Float_t> dEtaIn_;
@@ -233,6 +234,7 @@ SimpleElectronNtupler::SimpleElectronNtupler(const edm::ParameterSet& iConfig):
   electronTree_->Branch("genWeight"    ,  &genWeight_ , "genWeight/F");
   electronTree_->Branch("nEle"    ,  &nElectrons_ , "nEle/I");
   electronTree_->Branch("pt"    ,  &pt_    );
+  electronTree_->Branch("eSC"    ,  &eSC_    );
   electronTree_->Branch("etaSC" ,  &etaSC_ );
   electronTree_->Branch("phiSC" ,  &phiSC_ );
   electronTree_->Branch("dEtaIn",  &dEtaIn_);
@@ -370,6 +372,7 @@ SimpleElectronNtupler::analyze(const edm::Event& iEvent, const edm::EventSetup& 
   // Loop over electrons
   nElectrons_ = 0;
   pt_.clear();
+  eSC_.clear();
   etaSC_.clear();
   phiSC_.clear();
   dEtaIn_.clear();
@@ -399,6 +402,7 @@ SimpleElectronNtupler::analyze(const edm::Event& iEvent, const edm::EventSetup& 
     
     nElectrons_++;
     pt_.push_back( el->pt() );
+    eSC_.push_back( el->superCluster()->energy() );
     etaSC_.push_back( el->superCluster()->eta() );
     phiSC_.push_back( el->superCluster()->phi() );
     
