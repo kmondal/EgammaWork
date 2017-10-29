@@ -13,7 +13,8 @@ process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 #  that is typically found in the DAS under the Configs for given dataset
 #  (although it can be "overridden" by requirements of a given release)
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2017_realistic', '')
+#process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2017_realistic', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, '92X_upgrade2017_realistic_v10', '')
 
 #
 # Define input data to read
@@ -21,15 +22,17 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2017_realistic', '
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 
 inputFilesAOD = cms.untracked.vstring(
-    # AOD test files from /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/PhaseISpring17MiniAOD-FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/AODSIM
+    # AOD test files from /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISummer17MiniAOD-92X_upgrade2017_realistic_v10_ext1-v1/AODSIM
     # ... files are missing ...
     )    
 
 inputFilesMiniAOD = cms.untracked.vstring(
-    # MiniAOD test files from /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/PhaseISpring17MiniAOD-FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/MINIAODSIM
-'/store/mc/PhaseISpring17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/00000/0837196E-D728-E711-89CD-A4BF0102A5BD.root',
-'/store/mc/PhaseISpring17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/00000/08850370-692A-E711-8378-008CFA0A5830.root',
-'/store/mc/PhaseISpring17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/00000/0ABE6B63-C528-E711-A994-1866DAEA6CF0.root',
+    # MiniAOD test files from /DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISummer17MiniAOD-92X_upgrade2017_realistic_v10_ext1-v1/MINIAODSIM
+'/store/mc/RunIISummer17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/92X_upgrade2017_realistic_v10_ext1-v1/110000/02CF84A2-6086-E711-A3A1-0CC47A7C3458.root',
+'/store/mc/RunIISummer17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/92X_upgrade2017_realistic_v10_ext1-v1/110000/02DD1F83-7187-E711-B939-0025905B8576.root',
+'/store/mc/RunIISummer17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/92X_upgrade2017_realistic_v10_ext1-v1/110000/045B5C43-4B86-E711-BD5C-0025905A611E.root',
+'/store/mc/RunIISummer17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/92X_upgrade2017_realistic_v10_ext1-v1/110000/0468DB20-B986-E711-9968-0CC47A13CDB0.root',
+'/store/mc/RunIISummer17MiniAOD/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/MINIAODSIM/92X_upgrade2017_realistic_v10_ext1-v1/110000/08EAAB9F-A885-E711-8A11-001E67A3F3DF.root',
     )
 
 #
@@ -76,7 +79,7 @@ process.ntupler = cms.EDAnalyzer('SimpleElectronNtupler',
                                  verticesMiniAOD     = cms.InputTag("offlineSlimmedPrimaryVertices"),
                                  conversionsMiniAOD  = cms.InputTag('reducedEgamma:reducedConversions'),
                                  # Effective areas for computing PU correction for isolations
-                                 effAreasConfigFile = cms.FileInPath("RecoEgamma/ElectronIdentification/data/Spring15/effAreaElectrons_cone03_pfNeuHadronsAndPhotons_25ns.txt")
+                                 effAreasConfigFile = cms.FileInPath("RecoEgamma/ElectronIdentification/data/Fall17/effAreaElectrons_cone03_pfNeuHadronsAndPhotons_92X.txt")
                                  )
 
 process.TFileService = cms.Service("TFileService",

@@ -2,16 +2,15 @@ from WMCore.Configuration import Configuration
 config = Configuration()
 
 config.section_("General")
-config.General.requestName = 'electron_cutID_benchmark_DY_90X_mvaID_v1'
+config.General.requestName = 'electron_cutID_tuning_DY_92X_wEA_v1'
 config.General.workArea = 'crab_projects'
 
 config.section_("JobType")
 config.JobType.pluginName = 'Analysis'
-# config.JobType.psetName = 'runElectrons_VID_CutBased_Summer16_80X_benchmark.py'
-config.JobType.psetName = 'runElectrons_VID_MVA_Spring16_GeneralPurpose_benchmark.py'
+config.JobType.psetName = 'runElectrons.py'
 
 config.section_("Data")
-config.Data.inputDataset = '/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/PhaseISpring17MiniAOD-FlatPU28to62_902_90X_upgrade2017_realistic_v20_ext1-v1/MINIAODSIM'
+config.Data.inputDataset = '/DYJetsToLL_M-50_TuneCUETP8M1_13TeV-madgraphMLM-pythia8/RunIISummer17MiniAOD-92X_upgrade2017_realistic_v10_ext1-v1/MINIAODSIM'
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 10
