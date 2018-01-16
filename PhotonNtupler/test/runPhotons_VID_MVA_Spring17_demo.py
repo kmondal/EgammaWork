@@ -112,8 +112,8 @@ process.ntupler = cms.EDAnalyzer(
     #
     # (the names of the ValueMaps for just decision and full info are the same,
     # they are distinguished by the type of the info)
-    phoIdBoolMap = cms.InputTag("egmPhotonIDs:mvaPhoID_RunIISpring17_v1_wp90"),
-    phoIdFullInfoMap = cms.InputTag("egmPhotonIDs:mvaPhoID_RunIISpring17_v1_wp90"),
+    phoIdBoolMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIISpring17-v1-wp90"),
+    phoIdFullInfoMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIISpring17-v1-wp90"),
     # This is a fairly verbose mode if switched on, with full cut flow 
     # diagnostics for each candidate. Use it in a low event count test job.
     phoIdVerbose = cms.bool(False),
