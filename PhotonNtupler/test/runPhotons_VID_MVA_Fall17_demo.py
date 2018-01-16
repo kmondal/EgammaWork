@@ -23,7 +23,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '92X_upgrade2017_realistic_v10'
 #
 # Define input data to read
 #
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(5000) )
 
 inputFilesAOD = cms.untracked.vstring(
     # AOD test files from a GJet dataset
@@ -77,7 +77,7 @@ else :
 switchOnVIDPhotonIdProducer(process, dataFormat)
 
 # define which IDs we want to produce
-my_id_modules = ['RecoEgamma.PhotonIdentification.Identification.mvaPhotonID_RunIISpring17_v1_cff']
+my_id_modules = ['RecoEgamma.PhotonIdentification.Identification.mvaPhotonID_RunIIFall17_v1_cff']
 
 #add them to the VID producer
 for idmod in my_id_modules:
@@ -112,16 +112,16 @@ process.ntupler = cms.EDAnalyzer(
     #
     # (the names of the ValueMaps for just decision and full info are the same,
     # they are distinguished by the type of the info)
-    phoIdBoolMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIISpring17-v1-wp90"),
-    phoIdFullInfoMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIISpring17-v1-wp90"),
+    phoIdBoolMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIIFall17-v1-wp90"),
+    phoIdFullInfoMap = cms.InputTag("egmPhotonIDs:mvaPhoID-RunIIFall17-v1-wp90"),
     # This is a fairly verbose mode if switched on, with full cut flow 
     # diagnostics for each candidate. Use it in a low event count test job.
     phoIdVerbose = cms.bool(False),
     #
     # ValueMaps with MVA results
     #
-    mvaValuesMap     = cms.InputTag("photonMVAValueMapProducer:PhotonMVAEstimatorRunIISpring17v1Values"),
-    mvaCategoriesMap = cms.InputTag("photonMVAValueMapProducer:PhotonMVAEstimatorRunIISpring17v1Categories")
+    mvaValuesMap     = cms.InputTag("photonMVAValueMapProducer:PhotonMVAEstimatorRunIIFall17v1Values"),
+    mvaCategoriesMap = cms.InputTag("photonMVAValueMapProducer:PhotonMVAEstimatorRunIIFall17v1Categories")
     )
 
 process.TFileService = cms.Service("TFileService",
