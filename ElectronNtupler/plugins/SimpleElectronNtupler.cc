@@ -408,7 +408,7 @@ SimpleElectronNtupler::analyze(const edm::Event& iEvent, const edm::EventSetup& 
 
     // Conversion rejection
     expectedMissingInnerHits_.push_back(el->gsfTrack()->hitPattern()
-					.numberOfHits(reco::HitPattern::MISSING_INNER_HITS) );
+					.numberOfAllHits(reco::HitPattern::MISSING_INNER_HITS) );
 
     bool passConvVeto = !ConversionTools::hasMatchedConversion(*el, 
 							       conversions,
